@@ -1,0 +1,128 @@
+/* styles.css */
+
+/* Général */
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(45deg, #ff6ec7, #ff9a8b); /* Dégradé coloré */
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: #fff;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+/* Titre principal */
+h1 {
+    font-size: 3em;
+    margin-bottom: 20px;
+    color: #fff;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+/* Conteneur du jeu */
+#game-info {
+    background: rgba(255, 255, 255, 0.9); /* Fond semi-transparent */
+    padding: 30px;
+    border-radius: 10px;
+    width: 350px;
+    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+/* Mot à deviner */
+#masked-word {
+    font-size: 2.5em;
+    font-weight: bold;
+    letter-spacing: 5px;
+    color: #4CAF50;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Tentatives restantes et lettres devinées */
+#attempts-left,
+#guessed-letters {
+    font-size: 1.2em;
+    margin-top: 10px;
+    color: #333;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Champ de saisie */
+input[type="text"] {
+    font-size: 1.5em;
+    padding: 12px;
+    width: 60%;
+    border: none;
+    border-radius: 8px;
+    margin-top: 20px;
+    outline: none;
+    transition: transform 0.2s ease;
+    color: #333;
+    background-color: #fff;
+}
+
+input[type="text"]:focus {
+    transform: scale(1.05);
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+    border: 2px solid #ff6ec7;
+}
+
+/* Bouton */
+button {
+    background: linear-gradient(45deg, #ff6ec7, #ff9a8b); /* Dégradé du bouton */
+    color: white;
+    font-size: 1.2em;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 20px;
+    width: 60%;
+    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #ff9a8b;
+    transform: scale(1.1);
+}
+
+button:active {
+    background-color: #ff6ec7;
+}
+
+/* Animation du bouton */
+button:active {
+    animation: button-press 0.3s ease-out;
+}
+
+@keyframes button-press {
+    0% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Conteneur principal */
+div {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Effet d'ombre sur le conteneur du jeu */
+#game-info:hover {
+    box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+}

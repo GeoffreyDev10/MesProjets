@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu du Pendu</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #game-info {
+            margin: 20px;
+            color: black
+        }
+        #masked-word {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        #guessed-letters {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Jeu du Pendu</h1>
+    <div id="game-info">
+        <p id="masked-word">Mot à deviner : </p>
+        <p>Essais restants : <span id="attempts-left">10</span></p>
+        <p>Lettres trouvées: <span id="guessed-letters"></span></p>
+    </div>
+    <div>
+        <input type="text" id="letter-input" maxlength="1" placeholder="Entrez une lettre" />
+        <button onclick="submitGuess()">Deviner</button>
+    </div>
+    <script>
+        async function loadGameState() {
+            const response = await fetch('/game');
+            const gameState = await response.json();
+
+            document.getElementById('masked-word').textContent = `Mot à deviner : ${gameState.masked_word}`;
+            document.getElementById('attempts-left').textContent = gameState.attempts_left;
+            document.getElementById('guessed-letters').textContent = gameState.guessed_letters;
+        }
+
+        async function submitGuess() {
+            const letter = document.getElementById('letter-input').value;
+            if (letter) {
+                const response = await fetch(`/guess?letter=${letter}`, {
+                    method: 'POST',
+                });
+                const gameState = await response.json();
+
+                if (gameState.win) {
+                    alert('Félicitations, vous avez gagné !');
+                } else if (gameState.lose) {
+                    alert('Désolé, vous avez perdu.');
+                }
+
+                loadGameState(); 
+                document.getElementById('letter-input').value = ''; 
+            }
+        }
+
+        loadGameState();
+    </script>
+</body>
+</html>
