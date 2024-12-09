@@ -2,8 +2,8 @@
 
 /* Général */
 body {
-    font-family: 'Arial', sans-serif;
-    background: linear-gradient(45deg, #ff6ec7, #ff9a8b); /* Dégradé coloré */
+    font-family: 'Arial black', sans-serif;
+    background: linear-gradient(45deg, #07a6db, #1f31ab); /* Dégradé coloré */
     margin: 0;
     padding: 0;
     display: flex;
@@ -60,6 +60,8 @@ input[type="text"] {
     border: none;
     border-radius: 8px;
     margin-top: 20px;
+    margin-left: 10px;
+  padding-left: 10px;
     outline: none;
     transition: transform 0.2s ease;
     color: #333;
@@ -69,12 +71,12 @@ input[type="text"] {
 input[type="text"]:focus {
     transform: scale(1.05);
     box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-    border: 2px solid #ff6ec7;
+    border: 2px solid #07a6db;
 }
 
 /* Bouton */
 button {
-    background: linear-gradient(45deg, #ff6ec7, #ff9a8b); /* Dégradé du bouton */
+    background: linear-gradient(45deg, #07a6db, #1f31ab); /* Dégradé du bouton */
     color: white;
     font-size: 1.2em;
     padding: 12px 30px;
@@ -93,7 +95,7 @@ button:hover {
 }
 
 button:active {
-    background-color: #ff6ec7;
+    background-color: #1d56d1;
 }
 
 /* Animation du bouton */
@@ -125,4 +127,21 @@ div {
 #game-info:hover {
     box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.3);
     transform: scale(1.05);
+}
+
+#hangman-image-container {
+    width: 350px;        /* Largeur du carré */
+    height: 350px;       /* Hauteur du carré */
+    position: absolute;  /* Permet de positionner l'image */
+    top: 20px;           /* Espace de 20px depuis le haut de la page */
+    right: 20px;         /* Espace de 20px depuis la droite de la page */
+    overflow: hidden;    /* Cache l'excédent de l'image si elle dépasse du carré */
+    border-radius: 10px; /* Coins arrondis si tu veux ajouter des bords arrondis */
+}
+
+/* Image à l'intérieur du conteneur */
+#hangman-image {
+    width: 100%;         /* L'image occupe toute la largeur du conteneur */
+    height: 100%;        /* L'image occupe toute la hauteur du conteneur */
+    object-fit: cover;   /* Remplissage de l'image en gardant ses proportions */
 }

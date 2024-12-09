@@ -4,10 +4,7 @@ import (
 	"HangmanWeb/Hangman"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/png"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"text/template"
@@ -71,12 +68,18 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 	gameMutex.Lock()
 	defer gameMutex.Unlock()
 
+	// Empêche les tentatives après la fin du jeu
+	if gameState.Win || gameState.Lose {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
 		return
 	}
 
-	letter := r.URL.Query().Get("letter")
+	letter := r.FormValue("letter")
 	if letter == "" || len(letter) > 1 {
 		http.Error(w, "Veuillez fournir une lettre valide", http.StatusBadRequest)
 		return
@@ -84,7 +87,7 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 
 	letter = strings.ToLower(letter)
 	if strings.Contains(gameState.GuessedLetters, letter) {
-		http.Error(w, "Lettre déjà devinée", http.StatusConflict)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
@@ -105,44 +108,51 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		gameState.Lose = true
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(gameState); err != nil {
-		http.Error(w, "Erreur interne du serveur2", http.StatusInternalServerError)
-	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	// Chargement du fichier de template HTML
+	gameMutex.Lock()
+	defer gameMutex.Unlock()
+
+	// Détermine le chemin de l'image en fonction du nombre d'erreurs
+	imagePath := fmt.Sprintf("/static/hangman_images/%d.jpeg", gameState.CurrentStage)
+
+	// Chargement du template HTML
 	tmpl, err := template.ParseFiles("template/index.html")
 	if err != nil {
 		http.Error(w, "Erreur lors du chargement du template HTML : "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	err = tmpl.Execute(w, gameState)
-	if err != nil {
+	// Données à passer au template
+	data := struct {
+		GameState GameState
+		ImagePath string
+	}{
+		GameState: gameState,
+		ImagePath: imagePath,
+	}
+
+	// Exécution du template avec les données
+	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "Erreur lors de l'exécution du template : "+err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func image_hangman() {
-	existingImageFile, err := os.Open("hangmanWeb/hang1.png")
-	if err != nil {
-	}
-	defer existingImageFile.Close()
+func restartHandler(w http.ResponseWriter, r *http.Request) {
+	gameMutex.Lock()
+	defer gameMutex.Unlock()
 
-	imageData, imageType, err := image.Decode(existingImageFile)
+	// Réinitialiser l'état du jeu
+	err := loadGame()
 	if err != nil {
+		http.Error(w, "Erreur lors du redémarrage du jeu : "+err.Error(), http.StatusInternalServerError)
+		return
 	}
-	fmt.Println(imageData)
-	fmt.Println(imageType)
 
-	existingImageFile.Seek(0, 0)
-
-	loadedImage, err := png.Decode(existingImageFile)
-	if err != nil {
-	}
-	fmt.Println(loadedImage)
+	// Rediriger vers la page principale après le redémarrage
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func main() {
@@ -157,6 +167,7 @@ func main() {
 
 	http.HandleFunc("/game", gameStateHandler)
 	http.HandleFunc("/guess", guessHandler)
+	http.HandleFunc("/restart", restartHandler)
 
 	fmt.Println("Serveur en cours d'exécution sur http://localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
