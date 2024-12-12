@@ -69,14 +69,12 @@ func restartHandler(w http.ResponseWriter, r *http.Request) {
 
 // Gestion de la page principale (jeu)
 func gameStateHandler(w http.ResponseWriter, r *http.Request) {
-	// Récupère le pseudo depuis le cookie
-	cookie, err := r.Cookie("pseudo")
-	if err != nil || cookie.Value == "" {
+	// Vérifie si le pseudo est défini en mémoire
+	if pseudo == "" {
+		// Si aucun pseudo n'est défini, redirige vers la page de démarrage
 		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
-
-	pseudo := cookie.Value
 
 	maxStages := 10 // Limite du nombre d'images
 	if gameState.CurrentStage >= maxStages {
@@ -90,7 +88,7 @@ func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// structure de données à passer au template
+	// Structure de données à passer au template
 	data := struct {
 		Pseudo    string
 		GameState GameState
@@ -101,7 +99,7 @@ func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 		ImagePath: imagePath,
 	}
 
-	// exécuter le template avec les données passées
+	// Exécuter le template avec les données passées
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "Erreur lors de l'exécution du template : "+err.Error(), http.StatusInternalServerError)
 	}
@@ -156,7 +154,7 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 
 func startGameHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		// affiche le formulaire pour entrer le pseudo
+		// Affiche le formulaire pour entrer le pseudo
 		tmpl, err := template.ParseFiles("template/index2.html")
 		if err != nil {
 			http.Error(w, "Erreur lors du chargement du template : "+err.Error(), http.StatusInternalServerError)
@@ -167,13 +165,14 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		// récupère le pseudo soumis
+		// Récupère le pseudo soumis
 		pseudo = r.FormValue("pseudo")
 		if pseudo == "" {
 			http.Error(w, "Veuillez entrer un pseudo valide", http.StatusBadRequest)
 			return
 		}
 
+		// Redirige vers la page de jeu
 		http.Redirect(w, r, "/game", http.StatusSeeOther)
 	}
 }
