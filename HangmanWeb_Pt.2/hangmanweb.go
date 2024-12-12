@@ -11,9 +11,7 @@ import (
 	"text/template"
 )
 
-// go run hangmanweb.go
-// se connecter au local host
-
+// Définition de l'état du jeu
 type GameState struct {
 	Word           string `json:"word"`
 	MaskedWord     string `json:"masked_word"`
@@ -31,8 +29,9 @@ var (
 
 var pseudo string
 
+// Fonction de chargement du jeu
 func loadGame() error {
-	// Vérification de l'existence des fichiers avant de les charger
+	// Vérification des fichiers nécessaires
 	_, err := os.Stat("Hangman/words.txt")
 	if err != nil {
 		return fmt.Errorf("le fichier des mots est introuvable : %v", err)
@@ -43,6 +42,7 @@ func loadGame() error {
 		return fmt.Errorf("le fichier des positions hangman est introuvable : %v", err)
 	}
 
+	// Chargement des mots et des positions
 	words, err := Hangman.LireMotsDepuisFichier("Hangman/words.txt")
 	if err != nil {
 		return err
@@ -54,6 +54,7 @@ func loadGame() error {
 	}
 	fmt.Println("Positions hangman chargées : ", len(hangs))
 
+	// Choix d'un mot aléatoire et création de l'état du jeu
 	word := Hangman.MotAleatoire(words)
 	maskedWord := Hangman.CamouflerMot(word, len(word)/2-1)
 
@@ -68,6 +69,7 @@ func loadGame() error {
 	return nil
 }
 
+// Route pour afficher l'état du jeu en JSON
 func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 	gameMutex.Lock()
 	defer gameMutex.Unlock()
@@ -77,13 +79,14 @@ func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Erreur interne du serveur", http.StatusInternalServerError)
 	}
 
+	// Charge la page du jeu si la méthode est POST
 	if r.Method == http.MethodPost {
 		// Récupère le pseudo soumis
 		pseudo = r.FormValue("pseudo")
 	}
 
 	// Charge la page de jeu
-	tmpl, err := template.ParseFiles("game.html")
+	tmpl, err := template.ParseFiles("index.html")
 	if err != nil {
 		http.Error(w, "Erreur de chargement de la page", http.StatusInternalServerError)
 		return
@@ -94,6 +97,7 @@ func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
+// Route pour gérer les devinettes
 func guessHandler(w http.ResponseWriter, r *http.Request) {
 	gameMutex.Lock()
 	defer gameMutex.Unlock()
@@ -124,6 +128,7 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 	gameState.GuessedLetters += letter
 	lettresTrouvees := []rune(gameState.MaskedWord)
 
+	// Mise à jour de l'état du jeu
 	if strings.Contains(gameState.Word, letter) {
 		Hangman.RevelerLettresSimilaires(gameState.Word, letter, lettresTrouvees)
 		gameState.MaskedWord = string(lettresTrouvees)
@@ -132,6 +137,7 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 		gameState.AttemptsLeft--
 	}
 
+	// Vérification de la victoire ou défaite
 	if gameState.MaskedWord == gameState.Word {
 		gameState.Win = true
 	} else if gameState.AttemptsLeft <= 0 {
@@ -141,25 +147,28 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// Page d'accueil
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	if pseudo == "" {
-		http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
 
-	// Rendre la page principale (jeu) seulement si un pseudo est défini
-	maxStages := 10 // Limite du nombre d'images
+	// Limite le nombre d'images pour le hangman
+	maxStages := 10
 	if gameState.CurrentStage >= maxStages {
 		gameState.CurrentStage = maxStages - 1
 	}
 	imagePath := fmt.Sprintf("/static/hangman_images/%d.jpeg", gameState.CurrentStage)
 
-	tmpl, err := template.ParseFiles("template/index.html")
+	// Charge la page du jeu
+	tmpl, err := template.ParseFiles("index.html")
 	if err != nil {
 		http.Error(w, "Erreur lors du chargement du template HTML : "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Structure les données pour la page
 	data := struct {
 		Pseudo    string
 		GameState GameState
@@ -170,11 +179,13 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		ImagePath: imagePath,
 	}
 
+	// Exécute le template avec les données
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "Erreur lors de l'exécution du template : "+err.Error(), http.StatusInternalServerError)
 	}
 }
 
+// Route pour redémarrer le jeu
 func restartHandler(w http.ResponseWriter, r *http.Request) {
 	gameMutex.Lock()
 	defer gameMutex.Unlock()
@@ -190,10 +201,11 @@ func restartHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// Route pour afficher le formulaire d'entrée du pseudo
 func startGameHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		// Affiche le formulaire pour entrer le pseudo
-		tmpl, err := template.ParseFiles("template/index2.html")
+		tmpl, err := template.ParseFiles("index2.html")
 		if err != nil {
 			http.Error(w, "Erreur lors du chargement du template : "+err.Error(), http.StatusInternalServerError)
 			return
@@ -211,24 +223,28 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Redirige vers la page du jeu
-		http.Redirect(w, r, "/game", http.StatusSeeOther)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }
 
+// Point d'entrée principal
 func main() {
 	err := loadGame()
 	if err != nil {
 		panic("Erreur lors du chargement du jeu : " + err.Error())
 	}
 
+	// Sert les fichiers statiques
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
+	// Définit les routes
 	http.HandleFunc("/", homeHandler)           // Page d'accueil
 	http.HandleFunc("/start", startGameHandler) // Formulaire de pseudo
 	http.HandleFunc("/game", gameStateHandler)  // Page principale du jeu
 	http.HandleFunc("/guess", guessHandler)     // Gestion des devinettes
 	http.HandleFunc("/restart", restartHandler) // Redémarrage du jeu
 
+	// Démarre le serveur
 	fmt.Println("Serveur en cours d'exécution sur http://localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		fmt.Println("Erreur lors du démarrage du serveur : ", err)
