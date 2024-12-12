@@ -9,9 +9,6 @@ import (
 	"text/template"
 )
 
-// go run hangmanweb.go
-// se connecter au local host
-
 type GameState struct {
 	Word           string `json:"word"`
 	MaskedWord     string `json:"masked_word"`
@@ -25,10 +22,10 @@ type GameState struct {
 var (
 	gameState GameState
 	gameMutex sync.Mutex
+	pseudo    string
 )
 
-var pseudo string
-
+// chargement du jeu et initialisation de l'état du jeu
 func loadGame() error {
 	words, err := Hangman.LireMotsDepuisFichier("Hangman/words.txt")
 	if err != nil {
@@ -55,32 +52,45 @@ func loadGame() error {
 	return nil
 }
 
+// Fonction de réinitialisation du jeu
+func restartHandler(w http.ResponseWriter, r *http.Request) {
+	gameMutex.Lock()
+	defer gameMutex.Unlock()
+
+	err := loadGame()
+	if err != nil {
+		http.Error(w, "Erreur lors du redémarrage du jeu : "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Rediriger vers la page principale après le redémarrage
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// Gestion de la page principale (jeu)
 func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 	// Récupère le pseudo depuis le cookie
 	cookie, err := r.Cookie("pseudo")
 	if err != nil || cookie.Value == "" {
-		// Si le cookie n'existe pas ou est vide, redirige vers la page de démarrage
 		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
 
 	pseudo := cookie.Value
 
-	// Rendre la page principale (jeu) seulement si un pseudo est défini
 	maxStages := 10 // Limite du nombre d'images
 	if gameState.CurrentStage >= maxStages {
 		gameState.CurrentStage = maxStages - 1
 	}
 	imagePath := fmt.Sprintf("/static/hangman_images/%d.jpeg", gameState.CurrentStage)
 
-	// Charger le template HTML pour le jeu
 	tmpl, err := template.ParseFiles("template/index.html")
 	if err != nil {
 		http.Error(w, "Erreur lors du chargement du template HTML : "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Crée une structure de données à passer au template
+	// structure de données à passer au template
 	data := struct {
 		Pseudo    string
 		GameState GameState
@@ -91,7 +101,7 @@ func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 		ImagePath: imagePath,
 	}
 
-	// Exécuter le template avec les données passées
+	// exécuter le template avec les données passées
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "Erreur lors de l'exécution du template : "+err.Error(), http.StatusInternalServerError)
 	}
@@ -101,7 +111,7 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 	gameMutex.Lock()
 	defer gameMutex.Unlock()
 
-	// Empêche les tentatives après la fin du jeu
+	// empêche les tentatives après la fin du jeu
 	if gameState.Win || gameState.Lose {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -146,7 +156,7 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 
 func startGameHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		// Affiche le formulaire pour entrer le pseudo
+		// affiche le formulaire pour entrer le pseudo
 		tmpl, err := template.ParseFiles("template/index2.html")
 		if err != nil {
 			http.Error(w, "Erreur lors du chargement du template : "+err.Error(), http.StatusInternalServerError)
@@ -157,28 +167,27 @@ func startGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		// Récupère le pseudo soumis
+		// récupère le pseudo soumis
 		pseudo = r.FormValue("pseudo")
 		if pseudo == "" {
 			http.Error(w, "Veuillez entrer un pseudo valide", http.StatusBadRequest)
 			return
 		}
 
-		// Redirige vers la page du jeu
 		http.Redirect(w, r, "/game", http.StatusSeeOther)
 	}
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	// Vérifie si le pseudo est défini en mémoire
+	// vérifie si le pseudo est défini en mémoire
 	if pseudo == "" {
-		// Si aucun pseudo n'est défini, redirige vers la page de démarrage
+		// si aucun pseudo n'est défini, redirige vers la page de démarrage
 		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
 
-	// Si le pseudo est défini, afficher la page de jeu
-	maxStages := 10 // Limite du nombre d'images
+	// si le pseudo est défini, afficher la page de jeu
+	maxStages := 10 // limite du nombre d'images
 	if gameState.CurrentStage >= maxStages {
 		gameState.CurrentStage = maxStages - 1
 	}
@@ -205,21 +214,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func restartHandler(w http.ResponseWriter, r *http.Request) {
-	gameMutex.Lock()
-	defer gameMutex.Unlock()
-
-	// Réinitialiser l'état du jeu
-	err := loadGame()
-	if err != nil {
-		http.Error(w, "Erreur lors du redémarrage du jeu : "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Rediriger vers la page principale après le redémarrage
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
+// démarre le serveur
 func main() {
 	err := loadGame()
 	if err != nil {
@@ -228,6 +223,7 @@ func main() {
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
+	// définition des routes
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/start", startGameHandler)
 	http.HandleFunc("/game", gameStateHandler)

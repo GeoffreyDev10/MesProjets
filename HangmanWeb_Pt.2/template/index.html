@@ -8,29 +8,86 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
         }
-        #game-info {
-            margin: 20px;
-            color: black;
+        
+        h1 {
+            text-align: center;
+            font-size: 36px;
         }
+
+        .sub-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .game-container {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+            max-width: 1200px;
+            margin-top: 30px;
+        }
+
+        .left-column, .middle-column, .right-column {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
+        }
+
+        .left-column {
+            flex: 2;
+            padding-right: 20px;
+        }
+
+        .middle-column {
+            flex: 1;
+            align-items: center;
+        }
+
+        .right-column {
+            flex: 2;
+            align-items: center;
+        }
+
         #masked-word {
             font-size: 24px;
             font-weight: bold;
         }
-        #guessed-letters {
+
+        #guessed-letters, #attempts-left {
             margin-top: 10px;
+            font-size: 18px;
         }
-        #hangman-image {
-            max-width: 100%;
-            height: auto;
-            margin: 20px 0;
+
+        form input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            margin-right: 10px;
         }
-        .end-message {
-            font-size: 20px;
-            font-weight: bold;
-            color: red;
-            margin-top: 20px;
+
+        form button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
         }
+
+        form button:hover {
+            background-color: #45a049;
+        }
+
         .restart-button {
             padding: 10px 20px;
             font-size: 16px;
@@ -40,47 +97,64 @@
             cursor: pointer;
             margin-top: 20px;
         }
+
         .restart-button:hover {
             background-color: darkgreen;
+        }
+
+        #hangman-image {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .end-message {
+            font-size: 20px;
+            font-weight: bold;
+            color: red;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
     <h1>Jeu du Pendu</h1>
-    <!-- Information du jeu -->
-    <div id="game-info">
-        <p id="masked-word">Mot à deviner : {{.GameState.MaskedWord}}</p>
-        <p>Essais restants : {{.GameState.AttemptsLeft}}</p>
-        <p>Lettres trouvées : {{.GameState.GuessedLetters}}</p>
-    </div>
+    <!-- Sous-titre avec le pseudo de l'utilisateur -->
+    <p class="sub-title">A toi de jouer, {{.Pseudo}}</p>
 
-    <!-- Affichage de la victoire ou de la défaite -->
-    {{if .GameState.Win}}
-        <div class="end-message">
-            <p>Félicitations, vous avez gagné !</p>
+    <div class="game-container">
+        <!-- Bloc gauche avec les informations du jeu -->
+        <div class="left-column">
+            <p id="masked-word">Mot à deviner : {{.GameState.MaskedWord}}</p>
+            <p id="attempts-left">Essais restants : {{.GameState.AttemptsLeft}}</p>
+            <p id="guessed-letters">Lettres trouvées : {{.GameState.GuessedLetters}}</p>
         </div>
-    {{else if .GameState.Lose}}
-        <div class="end-message">
-            <p>Vous avez perdu ! Le mot était : {{.GameState.Word}}</p>
+
+        <!-- Bloc central avec le formulaire pour entrer une lettre -->
+        <div class="middle-column">
+            {{if .GameState.Win}}
+                <div class="end-message">
+                    <p>Félicitations, vous avez gagné !</p>
+                </div>
+            {{else if .GameState.Lose}}
+                <div class="end-message">
+                    <p>Vous avez perdu ! Le mot était : {{.GameState.Word}}</p>
+                </div>
+            {{else}}
+                <form action="/guess" method="post">
+                    <input type="text" name="letter" maxlength="1" placeholder="Entrez une lettre" required>
+                    <button type="submit">Deviner</button>
+                </form>
+            {{end}}
         </div>
-    {{else}}
-        <!-- Formulaire pour deviner une lettre -->
-        <div>
-            <form action="/guess" method="post">
-                <input type="text" name="letter" maxlength="1" placeholder="Entrez une lettre" required>
-                <button type="submit">Deviner</button>
+
+        <!-- Bloc droit avec l'image du pendu et le bouton de redémarrage -->
+        <div class="right-column">
+            <div id="hangman-image-container">
+                <img id="hangman-image" src="{{.ImagePath}}" alt="Image du Pendu">
+            </div>
+            <form action="/restart" method="post">
+                <button type="submit" class="restart-button">Recommencer le jeu</button>
             </form>
         </div>
-    {{end}}
-
-    <!-- Bouton de redémarrage -->
-    <form action="/restart" method="post">
-        <button type="submit" class="restart-button">Recommencer le jeu</button>
-    </form>
-
-    <!-- Affichage de l'image du pendu -->
-    <div id="hangman-image-container">
-        <img id="hangman-image" src="{{.ImagePath}}" alt="Image du Pendu">
     </div>
 </body>
 </html>
