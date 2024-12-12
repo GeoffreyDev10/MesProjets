@@ -2,7 +2,6 @@ package main
 
 import (
 	"HangmanWeb/Hangman"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -27,6 +26,8 @@ var (
 	gameState GameState
 	gameMutex sync.Mutex
 )
+
+var pseudo string
 
 func loadGame() error {
 	words, err := Hangman.LireMotsDepuisFichier("Hangman/words.txt")
@@ -55,12 +56,44 @@ func loadGame() error {
 }
 
 func gameStateHandler(w http.ResponseWriter, r *http.Request) {
-	gameMutex.Lock()
-	defer gameMutex.Unlock()
+	// Récupère le pseudo depuis le cookie
+	cookie, err := r.Cookie("pseudo")
+	if err != nil || cookie.Value == "" {
+		// Si le cookie n'existe pas ou est vide, redirige vers la page de démarrage
+		http.Redirect(w, r, "/start", http.StatusSeeOther)
+		return
+	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(gameState); err != nil {
-		http.Error(w, "Erreur interne du serveur1", http.StatusInternalServerError)
+	pseudo := cookie.Value
+
+	// Rendre la page principale (jeu) seulement si un pseudo est défini
+	maxStages := 10 // Limite du nombre d'images
+	if gameState.CurrentStage >= maxStages {
+		gameState.CurrentStage = maxStages - 1
+	}
+	imagePath := fmt.Sprintf("/static/hangman_images/%d.jpeg", gameState.CurrentStage)
+
+	// Charger le template HTML pour le jeu
+	tmpl, err := template.ParseFiles("template/index.html")
+	if err != nil {
+		http.Error(w, "Erreur lors du chargement du template HTML : "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Crée une structure de données à passer au template
+	data := struct {
+		Pseudo    string
+		GameState GameState
+		ImagePath string
+	}{
+		Pseudo:    pseudo,
+		GameState: gameState,
+		ImagePath: imagePath,
+	}
+
+	// Exécuter le template avec les données passées
+	if err := tmpl.Execute(w, data); err != nil {
+		http.Error(w, "Erreur lors de l'exécution du template : "+err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -111,30 +144,62 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	gameMutex.Lock()
-	defer gameMutex.Unlock()
+func startGameHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		// Affiche le formulaire pour entrer le pseudo
+		tmpl, err := template.ParseFiles("template/index2.html")
+		if err != nil {
+			http.Error(w, "Erreur lors du chargement du template : "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		tmpl.Execute(w, nil)
+		return
+	}
 
-	// Détermine le chemin de l'image en fonction du nombre d'erreurs
+	if r.Method == http.MethodPost {
+		// Récupère le pseudo soumis
+		pseudo = r.FormValue("pseudo")
+		if pseudo == "" {
+			http.Error(w, "Veuillez entrer un pseudo valide", http.StatusBadRequest)
+			return
+		}
+
+		// Redirige vers la page du jeu
+		http.Redirect(w, r, "/game", http.StatusSeeOther)
+	}
+}
+
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	// Vérifie si le pseudo est défini en mémoire
+	if pseudo == "" {
+		// Si aucun pseudo n'est défini, redirige vers la page de démarrage
+		http.Redirect(w, r, "/start", http.StatusSeeOther)
+		return
+	}
+
+	// Si le pseudo est défini, afficher la page de jeu
+	maxStages := 10 // Limite du nombre d'images
+	if gameState.CurrentStage >= maxStages {
+		gameState.CurrentStage = maxStages - 1
+	}
 	imagePath := fmt.Sprintf("/static/hangman_images/%d.jpeg", gameState.CurrentStage)
 
-	// Chargement du template HTML
 	tmpl, err := template.ParseFiles("template/index.html")
 	if err != nil {
 		http.Error(w, "Erreur lors du chargement du template HTML : "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Données à passer au template
 	data := struct {
+		Pseudo    string
 		GameState GameState
 		ImagePath string
 	}{
+		Pseudo:    pseudo,
 		GameState: gameState,
 		ImagePath: imagePath,
 	}
 
-	// Exécution du template avec les données
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "Erreur lors de l'exécution du template : "+err.Error(), http.StatusInternalServerError)
 	}
@@ -164,7 +229,7 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
 	http.HandleFunc("/", homeHandler)
-
+	http.HandleFunc("/start", startGameHandler)
 	http.HandleFunc("/game", gameStateHandler)
 	http.HandleFunc("/guess", guessHandler)
 	http.HandleFunc("/restart", restartHandler)
