@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"text/template"
@@ -31,6 +32,17 @@ var (
 var pseudo string
 
 func loadGame() error {
+	// Vérification de l'existence des fichiers avant de les charger
+	_, err := os.Stat("Hangman/words.txt")
+	if err != nil {
+		return fmt.Errorf("le fichier des mots est introuvable : %v", err)
+	}
+
+	_, err = os.Stat("Hangman/hangman.txt")
+	if err != nil {
+		return fmt.Errorf("le fichier des positions hangman est introuvable : %v", err)
+	}
+
 	words, err := Hangman.LireMotsDepuisFichier("Hangman/words.txt")
 	if err != nil {
 		return err
@@ -62,8 +74,9 @@ func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(gameState); err != nil {
-		http.Error(w, "Erreur interne du serveur1", http.StatusInternalServerError)
+		http.Error(w, "Erreur interne du serveur", http.StatusInternalServerError)
 	}
+
 	if r.Method == http.MethodPost {
 		// Récupère le pseudo soumis
 		pseudo = r.FormValue("pseudo")
@@ -75,6 +88,7 @@ func gameStateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Erreur de chargement de la page", http.StatusInternalServerError)
 		return
 	}
+
 	// Passe le pseudo à la page de jeu
 	data := map[string]string{"Pseudo": pseudo}
 	tmpl.Execute(w, data)
@@ -128,9 +142,12 @@ func guessHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	gameMutex.Lock()
-	defer gameMutex.Unlock()
+	if pseudo == "" {
+		http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+		return
+	}
 
+	// Rendre la page principale (jeu) seulement si un pseudo est défini
 	maxStages := 10 // Limite du nombre d'images
 	if gameState.CurrentStage >= maxStages {
 		gameState.CurrentStage = maxStages - 1
@@ -174,35 +191,28 @@ func restartHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func startGameHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
+	if r.Method == http.MethodGet {
+		// Affiche le formulaire pour entrer le pseudo
+		tmpl, err := template.ParseFiles("template/index2.html")
+		if err != nil {
+			http.Error(w, "Erreur lors du chargement du template : "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		tmpl.Execute(w, nil)
 		return
 	}
 
-	pseudo = r.FormValue("pseudo") // Récupérer le pseudo depuis le formulaire
-	if pseudo == "" {
-		http.Error(w, "Veuillez entrer un pseudo valide", http.StatusBadRequest)
-		return
+	if r.Method == http.MethodPost {
+		// Récupère le pseudo soumis
+		pseudo = r.FormValue("pseudo")
+		if pseudo == "" {
+			http.Error(w, "Veuillez entrer un pseudo valide", http.StatusBadRequest)
+			return
+		}
+
+		// Redirige vers la page du jeu
+		http.Redirect(w, r, "/game", http.StatusSeeOther)
 	}
-
-	// Rediriger vers la page du jeu
-	http.Redirect(w, r, "/game", http.StatusSeeOther)
-}
-
-func welcomeHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("template/index2.html")
-	if err != nil {
-		http.Error(w, "Erreur lors du chargement du template : "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	data := struct {
-		Pseudo string
-	}{
-		Pseudo: pseudo,
-	}
-
-	tmpl.Execute(w, data)
 }
 
 func main() {
@@ -213,11 +223,11 @@ func main() {
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/start", startGameHandler)
-	http.HandleFunc("/game", gameStateHandler)
-	http.HandleFunc("/guess", guessHandler)
-	http.HandleFunc("/restart", restartHandler)
+	http.HandleFunc("/", homeHandler)           // Page d'accueil
+	http.HandleFunc("/start", startGameHandler) // Formulaire de pseudo
+	http.HandleFunc("/game", gameStateHandler)  // Page principale du jeu
+	http.HandleFunc("/guess", guessHandler)     // Gestion des devinettes
+	http.HandleFunc("/restart", restartHandler) // Redémarrage du jeu
 
 	fmt.Println("Serveur en cours d'exécution sur http://localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
